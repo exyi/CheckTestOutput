@@ -82,6 +82,26 @@ public void GenerateSomeCsharpCode()
 
 Just keep in mind that dotnet is going to treat these `.cs` files as part of source code unless you `<Compile Remove="testoutputs/**.cs" />` them in the `.csproj` file.
 
+### F#
+
+This library is F# friendly, although it's written in C#:
+
+```fsharp
+open CheckTestOutput
+
+let check = CheckTestOutput "testoutputs"
+
+[<Fact>]
+let ``Simple object processing - UseGenericUnion`` () = task {
+    computeSomething 123 "456"
+    |> string
+    |> check.CheckString
+
+    // or if you need checkName
+    check.CheckString ("test string", checkName = "test2")
+}
+```
+
 ## Instalation
 
 Just install [CheckTestOutput NuGet package](https://www.nuget.org/packages/CheckTestOutput).
