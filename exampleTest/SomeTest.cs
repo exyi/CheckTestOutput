@@ -7,7 +7,7 @@ namespace CheckTestOutput.Example
 {
     public class SomeTest
     {
-        CheckTestOutput check = new CheckTestOutput("testoutputs");
+        OutputChecker check = new OutputChecker("testoutputs");
         [Fact]
         public void TestString()
         {

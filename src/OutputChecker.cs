@@ -5,10 +5,10 @@ using Medallion.Shell;
 
 namespace CheckTestOutput
 {
-    public class CheckTestOutput
+    public class OutputChecker
     {
         /// <param name="directory">Directory with the reference outputs, relative to the <see cref="calledFrom"/> parameter.</param>
-        public CheckTestOutput(
+        public OutputChecker(
             string directory,
             [System.Runtime.CompilerServices.CallerFilePath] string calledFrom = null)
         {

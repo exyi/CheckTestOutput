@@ -8,7 +8,7 @@ namespace CheckTestOutput
     public static class BasicChecks
     {
         public static void CheckString(
-            this CheckTestOutput t,
+            this OutputChecker t,
             string output,
             string checkName = null,
             string fileExtension = "txt",
@@ -29,7 +29,7 @@ namespace CheckTestOutput
         }
 
         public static void CheckLines(
-            this CheckTestOutput t,
+            this OutputChecker t,
             IEnumerable<string> output,
             string checkName = null,
             string fileExtension = "txt",

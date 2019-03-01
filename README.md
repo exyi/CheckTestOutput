@@ -14,7 +14,7 @@ This is how you check if simple string matches:
 ```csharp
 public class SomeTest
 {
-    CheckTestOutput check = new CheckTestOutput("testoutputs");
+    OutputChecker check = new OutputChecker("testoutputs");
     [Fact]
     public void TestString()
     {
@@ -89,7 +89,7 @@ This library is F# friendly, although it's written in C#:
 ```fsharp
 open CheckTestOutput
 
-let check = CheckTestOutput "testoutputs"
+let check = OutputChecker "testoutputs"
 
 [<Fact>]
 let ``Simple object processing - UseGenericUnion`` () = task {

@@ -9,7 +9,7 @@ namespace CheckTestOutput
     public static class JsonChecks
     {
         public static void CheckJsonObject(
-            this CheckTestOutput t,
+            this OutputChecker t,
             object output,
             string checkName = null,
             string fileExtension = "json",
