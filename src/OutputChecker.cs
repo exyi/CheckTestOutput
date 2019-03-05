@@ -40,6 +40,19 @@ namespace CheckTestOutput
             }
         }
 
+        private string GetOldContent(string file)
+        {
+            var lsFiles = RunGitCommand("ls-files", "-s", file);
+            if (lsFiles.Length == 0) return null;
+
+            var hash = lsFiles[0].Split(new [] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1);
+            if (String.IsNullOrEmpty(hash)) return null;
+
+            var contents = RunGitCommand("cat-file", "blob", hash);
+
+            return string.Join("\n", contents);
+        }
+
         private bool IsModified(string file)
         {
             // command `git ls-files --other --modified $file` returns the file name back iff it is modified or other (untracked)
@@ -48,15 +61,18 @@ namespace CheckTestOutput
             return !gitOut.All(string.IsNullOrEmpty);
         }
 
-        internal void CheckOutputCore(Action<Stream> writeOutput, string checkName, string method, string fileExtension = "txt")
+        internal void CheckOutputCore(string outputString, string checkName, string method, string fileExtension = "txt")
         {
             Directory.CreateDirectory(CheckDirectory);
 
             var filename = Path.Combine(CheckDirectory, (checkName == null ? method : $"{method}-{checkName}") + "." + fileExtension);
 
-            using (var outFile = File.Create(filename))
+            if (GetOldContent(filename) == outputString.Replace("\n", ""))
+                return;
+
+            using (var t = File.CreateText(filename))
             {
-                writeOutput(outFile);
+                t.WriteLine(outputString);
             }
 
             if (IsModified(filename))

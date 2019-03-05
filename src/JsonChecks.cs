@@ -16,18 +16,17 @@ namespace CheckTestOutput
             [System.Runtime.CompilerServices.CallerMemberName] string memberName = null,
             [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null)
         {
+            var serializer = new JsonSerializer();
+            var outputString = new System.Text.StringBuilder();
+            using (var w = new JsonTextWriter(new StringWriter(outputString)))
+            {
+                w.Indentation = 1;
+                w.IndentChar = '\t';
+                w.Formatting = Formatting.Indented;
+                serializer.Serialize(w, output);
+            }
             t.CheckOutputCore(
-                file => {
-                    var serializer = new JsonSerializer();
-                    using (var w = new JsonTextWriter(new StreamWriter(file)))
-                    {
-                        w.Indentation = 1;
-                        w.IndentChar = '\t';
-                        w.Formatting = Formatting.Indented;
-                        serializer.Serialize(w, output);
-                        w.WriteWhitespace(Environment.NewLine);
-                    }
-                },
+                outputString.ToString(),
                 checkName,
                 $"{Path.GetFileNameWithoutExtension(sourceFilePath)}.{memberName}",
                 fileExtension

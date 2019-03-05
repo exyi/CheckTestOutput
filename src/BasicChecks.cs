@@ -16,12 +16,7 @@ namespace CheckTestOutput
             [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null)
         {
             t.CheckOutputCore(
-                file => {
-                    using (var w = new StreamWriter(file))
-                    {
-                        w.WriteLine(output);
-                    }
-                },
+                output,
                 checkName,
                 $"{Path.GetFileNameWithoutExtension(sourceFilePath)}.{memberName}",
                 fileExtension
@@ -37,13 +32,7 @@ namespace CheckTestOutput
             [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null)
         {
             t.CheckOutputCore(
-                file => {
-                    using (var w = new StreamWriter(file))
-                    {
-                        foreach (var o in output)
-                            w.WriteLine(o);
-                    }
-                },
+                string.Join("\n", output),
                 checkName,
                 $"{Path.GetFileNameWithoutExtension(sourceFilePath)}.{memberName}",
                 fileExtension
