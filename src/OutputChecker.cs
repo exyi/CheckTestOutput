@@ -67,7 +67,7 @@ namespace CheckTestOutput
 
             var filename = Path.Combine(CheckDirectory, (checkName == null ? method : $"{method}-{checkName}") + "." + fileExtension);
 
-            if (GetOldContent(filename) == outputString.Replace("\n", ""))
+            if (GetOldContent(filename) == outputString.Replace("\r", ""))
                 return;
 
             using (var t = File.CreateText(filename))
