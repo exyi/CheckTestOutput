@@ -102,6 +102,37 @@ let ``Simple object processing - UseGenericUnion`` () = task {
 }
 ```
 
+### Non-deterministic string
+
+If you test string, for example, contains some randomly generated GUIDs it's not possible to test that the output is always the same. You could either make sure that the logic you are testing is fully deterministic, or you can fix it later. CheckTestOutput has a helper functionality which allows you to replace random GUIDs with deterministically generated ones.
+
+You can enable it by setting `sanitizeGuids: true` when creating `OutputChecker` (or `sanitizeQuotedGuids` if you want to only sanitize GUIDs in quotes):
+
+```csharp
+OutputChecker check = new OutputChecker("testoutputs", sanitizeGuids: true);
+
+[Fact]
+public void CheckGuidsJson()
+{
+    var id1 = Guid.NewGuid();
+    var id2 = Guid.NewGuid();
+
+    check.CheckJsonObject(new { id1, id2, id3 = id1 });
+}
+```
+
+The sanitization preserves equality - it replaces different GUIDs with different stub string and same GUID with the same string. In this case, the checked JSON will be this:
+
+```json
+{
+	"id1": "aaaaaaaa-bbbb-cccc-dddd-000000000001",
+	"id2": "aaaaaaaa-bbbb-cccc-dddd-000000000002",
+	"id3": "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+}
+```
+
+You can replace anything that can be found by a regular expression, just specify the regexes in the `nonDeterminismSanitizers` parameter.
+
 ## Installation
 
 Just install [CheckTestOutput NuGet package](https://www.nuget.org/packages/CheckTestOutput).
