@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -40,6 +41,30 @@ namespace CheckTestOutput
                 this.CheckDirectory = Path.Combine(Path.GetDirectoryName(calledFrom), directory);
             }
 
+            DoesGitWork = new Lazy<bool>(() => {
+                try
+                {
+                    var path = RunGitCommand("rev-parse", "--show-toplevel");
+                    return true;
+                }
+                catch (Win32Exception)
+                {
+                    Console.WriteLine("CheckTestOutput warning: git command not found. Falling back to simple file-based checking");
+                    return false;
+                }
+                catch (Exception e) when (e.Message.StartsWith("Git command failed: fatal: not a git repository"))
+                {
+                    Console.WriteLine("CheckTestOutput warning: project is not in git. Falling back to simple file-based checking");
+                    return false;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("CheckTestOutput warning: an error occurred while calling git. Falling back to simple file-based checking.");
+                    Console.WriteLine("Error: " + e);
+                    return false;
+                }
+            });
+
         }
 
         public string CheckDirectory { get; }
@@ -50,6 +75,7 @@ namespace CheckTestOutput
         /// </remarks>
         public IEnumerable<string> NonDeterminismSanitizers => _nonDeterminismSanitizers;
 
+        private readonly Lazy<bool> DoesGitWork;
 
         private string[] RunGitCommand(params string[] args)
         {
@@ -65,15 +91,22 @@ namespace CheckTestOutput
 
         private string GetOldContent(string file)
         {
-            var lsFiles = RunGitCommand("ls-files", "-s", file);
-            if (lsFiles.Length == 0) return null;
+            if (DoesGitWork.Value)
+            {
+                var lsFiles = RunGitCommand("ls-files", "-s", file);
+                if (lsFiles.Length == 0) return null;
 
-            var hash = lsFiles[0].Split(new [] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1);
-            if (String.IsNullOrEmpty(hash)) return null;
+                var hash = lsFiles[0].Split(new [] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1);
+                if (String.IsNullOrEmpty(hash)) return null;
 
-            var contents = RunGitCommand("cat-file", "blob", hash);
+                var contents = RunGitCommand("cat-file", "blob", hash);
 
-            return string.Join("\n", contents);
+                return string.Join("\n", contents);
+            }
+            else
+            {
+                return string.Join("\n", File.ReadLines(file));
+            }
         }
 
         private bool IsModified(string file)
@@ -109,20 +142,28 @@ namespace CheckTestOutput
 
             var filename = Path.Combine(CheckDirectory, (checkName == null ? method : $"{method}-{checkName}") + "." + fileExtension);
 
+
             if (GetOldContent(filename) == outputString.Replace("\r", ""))
                 return;
 
-            using (var t = File.CreateText(filename))
+            if (DoesGitWork.Value)
             {
-                t.WriteLine(outputString);
-            }
+                using (var t = File.CreateText(filename))
+                {
+                    t.WriteLine(outputString);
+                }
 
-            if (IsModified(filename))
+                if (IsModified(filename))
+                {
+                    var diff = RunGitCommand("diff", filename);
+                    if (diff.All(string.IsNullOrEmpty))
+                        throw new Exception($"Check {Path.GetFileName(filename)} - the file is probably untracked in git");
+                    throw new Exception($"Check {Path.GetFileName(filename)} - the expected output is different:\n{string.Join("\n", diff)}");
+                }
+            }
+            else
             {
-                var diff = RunGitCommand("diff", filename);
-                if (diff.All(string.IsNullOrEmpty))
-                    throw new Exception($"Check {Path.GetFileName(filename)} - the file is probably untracked in git");
-                throw new Exception($"Check {Path.GetFileName(filename)} - the expected output is different:\n{string.Join("\n", diff)}");
+                throw new Exception($"Check {Path.GetFileName(filename)} - the expected output is different:\n{outputString}");
             }
         }
     }
