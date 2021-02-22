@@ -1,13 +1,22 @@
 # CheckTestOutput
 
-Although it's a nice idea that tests should verify if the results are correct by some smart logic, it not always possible/practical. For example, if you are testing a transpiler, it would come in handy to solve the halting problem, which is not possible. In that cases, you may end up with an assertion that simply checks if the result is equal to one of the valid outputs and that is annoying to maintain. This project just makes it less annoying.
+A library for semi-manual tests. Run a function, manually check the output. But only if it is different than last run. Built on git - stage the new version to accept it.
 
-It is a very simple library that performs a check that the test output is the same as last time. It compares the test output with its version from git index and if it does not match it simply throws an exception. To accept a new version of output, you can simply stage a changed file produced by the test. Or, to find where is the difference, you can use your favorite tool for comparing changes in the source tree.
+Although it's a nice idea that tests should verify if the results are correct by some smart logic, it not always possible/practical. For example, when testing a transpiler, it would come in handy to solve the halting problem. In that cases, you may end up with an assertion that simply checks if the result is equal to one of the valid outputs and that is annoying to maintain. This project just makes the long `Assert.Equal("....", generatedCode)` less annoying.
+
+The library simply checks that the test output is the same as last time.
+It the test output is **compared with its version from git index** and throws an **exception if it does not match**, prints a diff and writes a new version to the working tree.
+To accept the new version, you stage the changed file.
+Or, to inspect the differences, you can use your favorite diff tool.
 
 
 ## Usage
 
-It requires your project to be in [git version control system](https://git-scm.com/). You can use any test framework you want, this thing just throws some exceptions, I'll use XUnit in the examples here. `CheckTestOutput` class just checks if some files match output from your test. The constructor parameter specifies where are the files going to be stored relative to the test file location (it uses [C#/F# caller info attributes](https://docs.microsoft.com/cs-cz/dotnet/csharp/programming-guide/concepts/caller-information)), in this case, it's `./testoutputs`. The file name is the method name, in this case, `SomeTest.TestString.txt`.
+It requires your project to be in [git version control system](https://git-scm.com/) (it works without git, but does not offer the simple stage-to-accept workflow).
+You can use any test framework you want, this thing just throws exceptions -- we'll use XUnit in the examples here.
+The `OutputChecker` constructor parameter specifies where are the files with the expected output going to be stored relative to the test file location (it uses [C#/F# caller info attributes](https://docs.microsoft.com/cs-cz/dotnet/csharp/programming-guide/concepts/caller-information)).
+In this case, it's `./testoutputs`.
+The file name will be equal to the caller method name, in this case, `SomeTest.TestString.txt`.
 
 This is how you check if simple string matches:
 
@@ -35,7 +44,7 @@ public void TestLines()
 }
 ```
 
-Or, you can check if the object matches when it is serialized to JSON (using Newtonsoft.Json)
+You can check if the object matches when it is serialized to JSON (using Newtonsoft.Json)
 
 ```csharp
 [Fact]
@@ -62,10 +71,33 @@ Or you can combine them into one anonymous JSON object (this is preferable when 
 
 ```csharp
 [Fact]
-public void TestWithMultipleChecks()
+public void TestObject()
 {
     PersonViewModel person = GetDefaultPersonDetail();
-    check.CheckJsonObject(new { fname = person.Name, lname = person.LastName, person.BirthDate });
+    check.CheckJsonObject(new {
+        fname = person.Name,
+        lname = person.LastName,
+        person.BirthDate
+    });
+}
+```
+
+The `checkName` parameter is also useful for tests with parameters (Theory in XUnit).
+For example, this way we could test a regular expression:
+
+```csharp
+[Theory]
+[InlineData("positive", "it's 12th January")]
+[InlineData("negative", "the result is -1")]
+[InlineData("zero", "there is 0% growth")]
+public void IncrementNumbers(string checkName, string testString)
+{
+    var replacedString = Regex.Replace(testString, "-?\\d+", m => int.Parse(m.Value) + 1 + "");
+    check.CheckLines(new [] {
+        testString,
+        " -> ",
+        replacedString
+    }, checkName);
 }
 ```
 
@@ -102,11 +134,11 @@ let ``Simple object processing - UseGenericUnion`` () = task {
 }
 ```
 
-### Non-deterministic string
+### Non-deterministic strings
 
 If you test string, for example, contains some randomly generated GUIDs it's not possible to test that the output is always the same. You could either make sure that the logic you are testing is fully deterministic, or you can fix it later. CheckTestOutput has a helper functionality which allows you to replace random GUIDs with deterministically generated ones.
 
-You can enable it by setting `sanitizeGuids: true` when creating `OutputChecker` (or `sanitizeQuotedGuids` if you want to only sanitize GUIDs in quotes):
+You can enable it by setting `sanitizeGuids: true` when creating `OutputChecker` (or `sanitizeQuotedGuids` to sanitize GUIDs in quotes):
 
 ```csharp
 OutputChecker check = new OutputChecker("testoutputs", sanitizeGuids: true);
@@ -141,4 +173,4 @@ Just install [CheckTestOutput NuGet package](https://www.nuget.org/packages/Chec
 dotnet add package CheckTestOutput
 ```
 
-Or, you can just grab the source codes from `src` folder and copy them into your project (it's MIT licensed, so just keep a link to this project in the copied code or something). This project has a dependency on [MedallionShell](https://github.com/madelson/MedallionShell) - an amazing library for executing processes without glitches the standard .NET API has. Also, we have a dependency on [Newtonsoft.Json](https://github.com/JamesNK/Newtonsoft.Json) for the JSON serialization. If you are copying the code you'll probably install these.
+Alternatively, you can just grab the source codes from `src` folder and copy them into your project (it's MIT licensed, so just keep a link to this project in the copied code or something). This project has a dependency on [MedallionShell](https://github.com/madelson/MedallionShell) - an amazing library for executing processes without the glitches of the `Process` class. Also, it has a dependency on [Newtonsoft.Json](https://github.com/JamesNK/Newtonsoft.Json) for the JSON serialization. If you are copying the code you'll probably install these.

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace CheckTestOutput.Example
@@ -35,6 +36,19 @@ namespace CheckTestOutput.Example
             check.CheckJsonObject(
                 new { number = 3, str = "jaja", list = new List<object> { 1, "23", new SomeTestObject { Prop = "hmm" } } }
             );
+        }
+
+        [Theory]
+        [InlineData("positive", "it's 12th January")]
+        [InlineData("negative", "the result is -1")]
+        [InlineData("zero", "there is 0% growth")]
+        public void IncrementNumbers(string checkName, string testString)
+        {
+            var replacedString = Regex.Replace(testString, "-?\\d+", m => int.Parse(m.Value) + 1 + "");
+            check.CheckLines(new [] {
+                testString,
+                replacedString
+            }, checkName);
         }
 
         class SomeTestObject
