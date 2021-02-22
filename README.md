@@ -165,6 +165,28 @@ The sanitization preserves equality - it replaces different GUIDs with different
 
 You can replace anything that can be found by a regular expression, just specify the regexes in the `nonDeterminismSanitizers` parameter.
 
+### Custom checks
+
+The `CheckString`, `CheckLines` and `CheckJsonObject` are just extension methods on the `OutputChecker` class and you can write your own.
+The only thing to keep in mind is to include and propagate the `CallerMemberName` and `CallerFilePath` attributes.
+As a simple example, this is how to implement a simple helper that changes the default file extension to `js`:
+
+```csharp
+public static void CheckJavascript(
+    this OutputChecker t,
+    string output,
+    string checkName = null,
+    string fileExtension = "js",
+    [System.Runtime.CompilerServices.CallerMemberName] string memberName = null,
+    [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null)
+{
+    t.CheckString(output, checkName, fileExtension, memberName, sourceFilePath);
+}
+
+```
+
+For more inspiration, have a look at [CheckExtensions class in the Coberec project](https://github.com/exyi/coberec/blob/83f4a744af8cc9ec2c3e24d86d25840c41617ed2/src/Coberec.ExprCS.Tests/CheckExtensions.cs).
+
 ## Installation
 
 Just install [CheckTestOutput NuGet package](https://www.nuget.org/packages/CheckTestOutput).
@@ -173,4 +195,5 @@ Just install [CheckTestOutput NuGet package](https://www.nuget.org/packages/Chec
 dotnet add package CheckTestOutput
 ```
 
-Alternatively, you can just grab the source codes from `src` folder and copy them into your project (it's MIT licensed, so just keep a link to this project in the copied code or something). This project has a dependency on [MedallionShell](https://github.com/madelson/MedallionShell) - an amazing library for executing processes without the glitches of the `Process` class. Also, it has a dependency on [Newtonsoft.Json](https://github.com/JamesNK/Newtonsoft.Json) for the JSON serialization. If you are copying the code you'll probably install these.
+Alternatively, you can just grab the source codes from `src` folder and copy them into your project (it's MIT licensed, so just keep a link to this project in the copied code or something). This project has a dependency on [MedallionShell](https://github.com/madelson/MedallionShell) - an amazing library for executing processes without the glitches of the `Process` class. Also, it has a dependency on [Newtonsoft.Json](https://github.com/JamesNK/Newtonsoft.Json) for the JSON serialization. If you are copying the code you'll probably install these. You can exclude `JsonChecks.cs` file to get rid of Newtonsoft.Json dependency.
+
