@@ -3,13 +3,20 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
 
+    <Description>Simple helper which checks that output of a test matches a file. If not matching, just git staging the new file will accept the new version.</Description>
     <PackageId>CheckTestOutput</PackageId>
     <Version>$(PackageVersion)</Version>
-    <Authors>exyi</Authors>
+    <Authors>Standa Lukeš</Authors>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <RepositoryUrl>https://github.com/exyi/CheckTestOutput.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/exyi/CheckTestOutput</PackageProjectUrl>
+
+    <AssemblyOriginatorKeyFile>dotvvmwizard.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
+    <PublicSign>true</PublicSign>
+
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +24,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
 
     <None Include="../LICENSE" Pack="true" PackagePath=""/>
+    <None Include="../README.md" Pack="true" PackagePath=""/>
   </ItemGroup>
 
 </Project>

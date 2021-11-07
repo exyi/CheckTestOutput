@@ -112,7 +112,7 @@ namespace CheckTestOutput
         private bool IsModified(string file)
         {
             // command `git ls-files --other --modified $file` returns the file name back iff it is modified or other (untracked)
-            var gitOut = RunGitCommand("ls-files", "--other", "--modified", file);
+            var gitOut = RunGitCommand("ls-files", "--other", "--modified", "--deleted", file);
             // if it outputs back the filename, it is changed
             return !gitOut.All(string.IsNullOrEmpty);
         }
@@ -144,7 +144,17 @@ namespace CheckTestOutput
 
 
             if (GetOldContent(filename) == outputString.Replace("\r", ""))
+            {
+                // fine! Just check that the file is not changed - if it is changed or deleted, we rewrite
+                if (IsModified(filename))
+                {
+                    using (var t = File.CreateText(filename))
+                    {
+                        t.WriteLine(outputString);
+                    }
+                }
                 return;
+            }
 
             if (DoesGitWork.Value)
             {
