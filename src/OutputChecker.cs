@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Medallion.Shell;
 
 namespace CheckTestOutput
 {
@@ -49,7 +49,7 @@ namespace CheckTestOutput
                 }
                 catch (Win32Exception)
                 {
-                    Console.WriteLine("CheckTestOutput warning: git command not found. Falling back to simple file-based checking");
+                    Console.WriteLine("CheckTestOutput warning: git command not found. Falling back to simple file-based checking. Make sure that git is installed and in the PATH.");
                     return false;
                 }
                 catch (Exception e) when (e.Message.StartsWith("Git command failed: fatal: not a git repository"))
@@ -79,14 +79,39 @@ namespace CheckTestOutput
 
         private string[] RunGitCommand(params string[] args)
         {
-            using(var cmd = Command.Run("git", args, o => { o.WorkingDirectory(CheckDirectory); o.Timeout(TimeSpan.FromSeconds(3)); }))
+            // run `git ...args` in CheckDirectory working directory with 3 second timeout
+            var procInfo = new ProcessStartInfo("git")
             {
-                cmd.Wait();
-                if (cmd.Task.Result.ExitCode != 0)
-                    throw new Exception($"Git command failed: {cmd.Task.Result.StandardError}");
+                WorkingDirectory = CheckDirectory,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8,
+            };
+            foreach (var a in args)
+                procInfo.ArgumentList.Add(a);
 
-                return cmd.StandardOutput.GetLines().ToArray();
+            var proc = Process.Start(procInfo);
+            if (!proc.WaitForExit(3000))
+            {
+                proc.Kill();
+                throw new Exception("Git command timed out");
             }
+
+            if (proc.ExitCode != 0)
+                throw new Exception("Git command failed: " + proc.StandardError.ReadToEnd());
+            
+            return proc.StandardOutput.ReadToEnd().Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        static string[] ReadAllLines(StreamReader reader)
+        {
+            var lines = new List<string>();
+            while (!reader.EndOfStream && reader.ReadLine() is {} line)
+                lines.Add(line);
+            return lines.ToArray();
         }
 
         private string GetOldContent(string file)
@@ -167,13 +192,18 @@ namespace CheckTestOutput
                 {
                     var diff = RunGitCommand("diff", filename);
                     if (diff.All(string.IsNullOrEmpty))
-                        throw new Exception($"Check {Path.GetFileName(filename)} - the file is probably untracked in git");
-                    throw new Exception($"Check {Path.GetFileName(filename)} - the expected output is different:\n{string.Join("\n", diff)}");
+                        throw new Exception($"{Path.GetFileName(filename)} is not explicitly accepted - the file is untracked in git. View the file and stage to let this test pass. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#untracked-file\n");
+                    throw new Exception(
+                        $"{Path.GetFileName(filename)} has changed, the actual output differs from the previous accepted output:\n\n" +
+                        string.Join("\n", diff) + "\n\n" +
+                        "If this change OK? Stage the file in git to let the test pass. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#changed-file\n"
+
+                    );
                 }
             }
             else
             {
-                throw new Exception($"Check {Path.GetFileName(filename)} - the expected output is different:\n{outputString}");
+                throw new Exception($"{Path.GetFileName(filename)}has changed, the previous accepted output differs from the actual output:\n\n{outputString}\n\nNote that CheckTestOutput could not use git on your system, so the \"UX\" is limited.");
             }
         }
     }
