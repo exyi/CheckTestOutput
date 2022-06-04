@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace CheckTestOutput
 {
@@ -16,17 +17,14 @@ namespace CheckTestOutput
             [System.Runtime.CompilerServices.CallerMemberName] string memberName = null,
             [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null)
         {
-            var serializer = new JsonSerializer();
-            var outputString = new System.Text.StringBuilder();
-            using (var w = new JsonTextWriter(new StringWriter(outputString)))
-            {
-                w.Indentation = 1;
-                w.IndentChar = '\t';
-                w.Formatting = Formatting.Indented;
-                serializer.Serialize(w, output);
-            }
+            var strOutput =
+                JsonSerializer.Serialize(output, new JsonSerializerOptions() { WriteIndented = true });
+
+
+            // indent using tabs for back compatibility
+            strOutput = Regex.Replace(strOutput, "^(  )+", m => new string('\t', m.Value.Length / 2), RegexOptions.Multiline);
             t.CheckOutputCore(
-                outputString.ToString(),
+                strOutput,
                 checkName,
                 $"{Path.GetFileNameWithoutExtension(sourceFilePath)}.{memberName}",
                 fileExtension
