@@ -1,20 +1,19 @@
 # CheckTestOutput
 
-A library for semi-manual tests. Run a function, manually check the output. But only if it is different than last run. Built on git - stage the new version to accept it.
+**A library for semi-manual tests. Run a function, manually check the output - only if it is different than last run. Built on git - stage the new version to accept it.**
 
-Although it's a nice idea that tests should verify if the results are correct by some smart logic, it not always possible/practical. For example, when testing a transpiler, it would come in handy to solve the halting problem. In that cases, you may end up with an assertion that simply checks if the result is equal to one of the valid outputs and that is annoying to maintain. This project just makes the long `Assert.Equal("....", generatedCode)` less annoying.
+Although it's a nice idea that tests should verify if the results are correct by some smart logic, it not always possible/practical. For example, when testing a transpiler, it would come in handy to solve the halting problem. In such cases, you will end up with an `Assert.Equal("some very long code including many \" \" and \n \n, super fun to read and maintain", generatedCode)`. This project just makes the long asserts less annoying.
 
-The library simply checks that the test output is the same as last time.
-It the test output is **compared with its version from git index** and throws an **exception if it does not match**, prints a diff and writes a new version to the working tree.
-To accept the new version, you stage the changed file.
-Or, to inspect the differences, you can use your favorite diff tool.
-
+CheckTestOutput simply compares the test output and the last "accepted" test output. When it differs, you get an error.
+The test output is **compared with its version from git index** and throws an **exception if it does not match**, prints a diff and writes a new version to the working tree.
+To accept the new version, you simply stage the changed file (`git add ...`).
+To inspect the differences, you use your favorite diff tool.
 
 ## Usage
 
 It requires your project to be in [git version control system](https://git-scm.com/) (it works without git, but does not offer the simple stage-to-accept workflow).
 You can use any test framework you want, this thing just throws exceptions -- we'll use XUnit in the examples here.
-The `OutputChecker` constructor parameter specifies where are the files with the expected output going to be stored relative to the test file location (it uses [C#/F# caller info attributes](https://docs.microsoft.com/cs-cz/dotnet/csharp/programming-guide/concepts/caller-information)).
+The `OutputChecker` constructor parameter specifies where are the output files (relative to the test file location - it uses [C#/F# caller info attributes](https://docs.microsoft.com/cs-cz/dotnet/csharp/programming-guide/concepts/caller-information)).
 In this case, it's `./testoutputs`.
 The file name will be equal to the caller method name, in this case, `SomeTest.TestString.txt`.
 
@@ -44,7 +43,7 @@ public void TestLines()
 }
 ```
 
-You can check if the object matches when it is serialized to JSON (using Newtonsoft.Json)
+Check if the object matches when it is serialized to JSON (using Newtonsoft.Json)
 
 ```csharp
 [Fact]
@@ -55,7 +54,7 @@ public void TestObject()
 }
 ```
 
-In case you want to use more that one check in one test, you can give them names (so they don't end up overriding themselves):
+To use more that one check in one test, you need to give them names (so they don't end up overriding themselves):
 
 ```csharp
 [Fact]
@@ -67,7 +66,7 @@ public void TestWithMultipleChecks()
 }
 ```
 
-Or you can combine them into one anonymous JSON object (this is preferable when it's short - you don't end up with so many tiny files):
+Alternatively, combine them into one anonymous JSON object. It's generally preferable when the string are short - too many tiny files are annoying:
 
 ```csharp
 [Fact]
@@ -82,7 +81,7 @@ public void TestObject()
 }
 ```
 
-The `checkName` parameter is also useful for tests with parameters (Theory in XUnit).
+The `checkName` parameter is also useful for tests with parameters (`[Theory]` in XUnit).
 For example, this way we could test a regular expression:
 
 ```csharp
@@ -101,7 +100,7 @@ public void IncrementNumbers(string checkName, string testString)
 }
 ```
 
-The text files have `.txt` file extension by default, if that annoys you because your strings have some specific format and syntax highlighting does not work in text files...
+The text files have `.txt` file extension by default, but it's easy to change:
 
 ```csharp
 [Fact]
@@ -116,7 +115,7 @@ Just keep in mind that dotnet is going to treat these `.cs` files as part of sou
 
 ### F#
 
-This library is F# friendly, although it's written in C#:
+CheckTestOutput is reasonably F# friendly, although it's written in C#:
 
 ```fsharp
 open CheckTestOutput
@@ -124,19 +123,21 @@ open CheckTestOutput
 let check = OutputChecker "testoutputs"
 
 [<Fact>]
-let ``Simple object processing - UseGenericUnion`` () = task {
+let ``Simple object processing - UseGenericUnion`` () =
     computeSomething 123 "456"
     |> string
     |> check.CheckString
 
     // or if you need checkName
     check.CheckString ("test string", checkName = "test2")
-}
+[<Fact>]
+let ``Example with anonymous record`` () =
+    check.CheckJsonObject {| a = 1; b = "tukabel" |}
 ```
 
 ### Non-deterministic strings
 
-If you test string, for example, contains some randomly generated GUIDs it's not possible to test that the output is always the same. You could either make sure that the logic you are testing is fully deterministic, or you can fix it later. CheckTestOutput has a helper functionality which allows you to replace random GUIDs with deterministically generated ones.
+If the test output contains some randomly generated UUIDs it isn't possible to test that the output is always the same. To fix the problem, you would either have to use a seeded random generator, or replace the UUIDs after the fact. CheckTestOutput has a helper functionality which allows you to replace random UUIDs with deterministically generated ones.
 
 You can enable it by setting `sanitizeGuids: true` when creating `OutputChecker` (or `sanitizeQuotedGuids` to sanitize GUIDs in quotes):
 
@@ -153,7 +154,7 @@ public void CheckGuidsJson()
 }
 ```
 
-The sanitization preserves equality - it replaces different GUIDs with different stub string and same GUID with the same string. In this case, the checked JSON will be this:
+The sanitization preserves equality - it replaces different UUIDs with different stub string and same UUID with the same string. In this case, the checked JSON will be this:
 
 ```json
 {
@@ -163,7 +164,7 @@ The sanitization preserves equality - it replaces different GUIDs with different
 }
 ```
 
-You can replace anything that can be found by a regular expression, just specify the regexes in the `nonDeterminismSanitizers` parameter.
+While mostly used for UUIDs, we can replace anything that can be found by a regular expression - just specify a list of regular expressions in the `nonDeterminismSanitizers` parameter.
 
 ### Custom checks
 
@@ -189,11 +190,11 @@ For more inspiration, have a look at [CheckExtensions class in the Coberec proje
 
 ## Installation
 
-Just install [CheckTestOutput NuGet package](https://www.nuget.org/packages/CheckTestOutput).
+[NuGet package](https://www.nuget.org/packages/CheckTestOutput) ¯\_(ツ)_/¯.
 
 ```
 dotnet add package CheckTestOutput
 ```
 
-Alternatively, you can just grab the source codes from `src` folder and copy them into your project (it's MIT licensed, so just keep a link to this project in the copied code or something). This project has a dependency on [MedallionShell](https://github.com/madelson/MedallionShell) - an amazing library for executing processes without the glitches of the `Process` class. Also, it has a dependency on [Newtonsoft.Json](https://github.com/JamesNK/Newtonsoft.Json) for the JSON serialization. If you are copying the code you'll probably install these. You can exclude `JsonChecks.cs` file to get rid of Newtonsoft.Json dependency.
+Alternatively, you can just grab the source codes from `src` folder and copy them into your project (it's MIT licensed, so just keep a link to this project in the copied code). This library does not have any other dependencies.
 
