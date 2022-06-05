@@ -9,6 +9,10 @@ namespace CheckTestOutput
 {
     public static class JsonChecks
     {
+        /// <summary> Verifies that the provided object <paramref name="output" />, serialized as Json using System.Text.Json, is equal to the `outputDirectory/TestClass.TestMethod.json` file. </summary>
+        /// <param name="jsonOptions"> Json serialization options will be passed to <see cref="JsonSerializer.Serialize{TValue}(TValue, JsonSerializerOptions?)" />. </param>
+        /// <param name="normalizePropertyOrder"> If true, object properties will be sorted alphabetically. </param>
+        /// <param name="checkName"> If not null, checkName will be appended to the calling <paramref name="memberName" />. Intended to be used when having multiple checks in one method. </param>
         public static void CheckJsonObject(
             this OutputChecker t,
             object output,
@@ -20,8 +24,7 @@ namespace CheckTestOutput
             [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null)
         {
             jsonOptions ??= new JsonSerializerOptions() { WriteIndented = true };
-            var strOutput =
-                JsonSerializer.Serialize(output, jsonOptions);
+            var strOutput = SerializeJson(output, jsonOptions);
 
             if (normalizePropertyOrder)
             {
@@ -34,7 +37,6 @@ namespace CheckTestOutput
                 strOutput = System.Text.Encoding.UTF8.GetString(outputStream.ToArray());
             }
 
-
             // indent using tabs for back compatibility
             strOutput = Regex.Replace(strOutput, "^(  )+", m => new string('\t', m.Value.Length / 2), RegexOptions.Multiline);
             t.CheckOutputCore(
@@ -43,6 +45,28 @@ namespace CheckTestOutput
                 $"{Path.GetFileNameWithoutExtension(sourceFilePath)}.{memberName}",
                 fileExtension
             );
+        }
+
+        static string SerializeJson(object obj, JsonSerializerOptions options)
+        {
+            if (obj is null) return "null";
+
+            var type = obj.GetType();
+            bool isToStringableObject = false;
+            while (type != null)
+            {
+                if (type.FullName == "Newtonsoft.Json.Linq.JToken")
+                {
+                    isToStringableObject = true;
+                    break;
+                }
+                type = type.BaseType;
+            }
+            if (isToStringableObject)
+                return obj.ToString();
+
+            return JsonSerializer.Serialize(obj, options);
+
         }
 
         static void NormalizePropertyOrder(JsonElement e, Utf8JsonWriter output)

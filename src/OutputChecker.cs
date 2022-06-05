@@ -10,6 +10,7 @@ namespace CheckTestOutput
 {
     public class OutputChecker
     {
+        /// <summary> Checks that the provided test output matched a file from the <paramref name="directory"/>. Filename is a {callingClass}.{callingMethod}.fileExtension </summary>
         /// <param name="directory">Directory with the reference outputs, relative to the <see cref="calledFrom"/> parameter.</param>
         /// <param name="sanitizeGuids">Replace all strings that look like Guid by a sequential id. The sanitization preserves equality.</param>
         /// <param name="sanitizeQuotedGuids">Replace all strings that look like Guid and are in quotes by a sequential id. The sanitization preserves equality.</param>
@@ -142,6 +143,7 @@ namespace CheckTestOutput
             return !gitOut.All(string.IsNullOrEmpty);
         }
 
+        /// <summary> Applies the <see cref="NonDeterminismSanitizers" /> to the string. </summary>
         public string SanitizeString(string outputString)
         {
             var x = new Dictionary<string, string>();
@@ -192,11 +194,11 @@ namespace CheckTestOutput
                 {
                     var diff = RunGitCommand("diff", filename);
                     if (diff.All(string.IsNullOrEmpty))
-                        throw new Exception($"{Path.GetFileName(filename)} is not explicitly accepted - the file is untracked in git. View the file and stage to let this test pass. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#untracked-file\n");
+                        throw new Exception($"{Path.GetFileName(filename)} is not explicitly accepted - the file is untracked in git. To let this test pass, view the file and stage it. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#untracked-file\n");
                     throw new Exception(
                         $"{Path.GetFileName(filename)} has changed, the actual output differs from the previous accepted output:\n\n" +
                         string.Join("\n", diff) + "\n\n" +
-                        "If this change OK? Stage the file in git to let the test pass. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#changed-file\n"
+                        "If this change OK? To let the test pass, stage the file in git. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#changed-file\n"
 
                     );
                 }

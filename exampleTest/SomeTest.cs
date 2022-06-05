@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace CheckTestOutput.Example
@@ -91,6 +92,15 @@ namespace CheckTestOutput.Example
             dict.Add("lol", false);
             dict.Add(randomEl.Key, randomEl.Value);
             check.CheckJsonObject(dict, normalizePropertyOrder: true);
+        }
+
+        [Fact]
+        public void NewtonsoftJsonCompatibility()
+        {
+            check.CheckJsonObject(
+                JObject.FromObject(new { number = 3, str = "jaja", list = new List<object> { 1, "2313", new SomeTestObject { Prop = "hmm" } } })
+            );
+
         }
 
         class SomeTestObject
