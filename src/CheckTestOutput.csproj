@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.1;net6.0</TargetFrameworks>
+    <LangVersion>9</LangVersion>
 
     <Description>Simple helper which checks that output of a test matches a file. If not matching, just git staging the new file will accept the new version.</Description>
     <PackageId>CheckTestOutput</PackageId>
@@ -23,6 +24,7 @@
     <IncludeSymbols>false</IncludeSymbols>
     <DebugType>embedded</DebugType>
     <EmbedAllSources>true</EmbedAllSources>
+    
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">

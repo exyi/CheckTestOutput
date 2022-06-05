@@ -23,19 +23,8 @@ namespace CheckTestOutput
             [System.Runtime.CompilerServices.CallerMemberName] string memberName = null,
             [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null)
         {
-            jsonOptions ??= new JsonSerializerOptions() { WriteIndented = true };
-            var strOutput = SerializeJson(output, jsonOptions);
-
-            if (normalizePropertyOrder)
-            {
-                // this awesome, just give me back newtonsoft...
-                var jsonDocument = JsonDocument.Parse(strOutput);
-                var outputStream = new MemoryStream();
-                var writer = new Utf8JsonWriter(outputStream, new JsonWriterOptions { Indented = true });
-                NormalizePropertyOrder(jsonDocument.RootElement, writer);
-                writer.Flush();
-                strOutput = System.Text.Encoding.UTF8.GetString(outputStream.ToArray());
-            }
+            jsonOptions ??= new JsonSerializerOptions() { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+            var strOutput = SerializeJson(output, jsonOptions, normalizePropertyOrder);
 
             // indent using tabs for back compatibility
             strOutput = Regex.Replace(strOutput, "^(  )+", m => new string('\t', m.Value.Length / 2), RegexOptions.Multiline);
@@ -47,7 +36,7 @@ namespace CheckTestOutput
             );
         }
 
-        static string SerializeJson(object obj, JsonSerializerOptions options)
+        internal static string SerializeJson(object obj, JsonSerializerOptions options, bool normalizePropertyOrder)
         {
             if (obj is null) return "null";
 
@@ -62,11 +51,23 @@ namespace CheckTestOutput
                 }
                 type = type.BaseType;
             }
-            if (isToStringableObject)
-                return obj.ToString();
 
-            return JsonSerializer.Serialize(obj, options);
+            var output =
+                isToStringableObject ? obj.ToString() :
+                JsonSerializer.Serialize(obj, options);
 
+            return normalizePropertyOrder ? NormalizePropertyOrder(output) : output;
+        }
+
+        static string NormalizePropertyOrder(string json)
+        {
+            // this awesome, just give me back newtonsoft...
+            var jsonDocument = JsonDocument.Parse(json);
+            var outputStream = new MemoryStream();
+            var writer = new Utf8JsonWriter(outputStream, new JsonWriterOptions { Indented = true });
+            NormalizePropertyOrder(jsonDocument.RootElement, writer);
+            writer.Flush();
+            return System.Text.Encoding.UTF8.GetString(outputStream.ToArray());
         }
 
         static void NormalizePropertyOrder(JsonElement e, Utf8JsonWriter output)

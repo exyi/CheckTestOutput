@@ -1,0 +1,11 @@
+ID Age Something      Title          PolymorphicSomething 
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1  10  {"Prop":"hmm"} Yes                                 
+	SomeText: "Lorem ipsum..."
+
+2  20                 "please no"    {"trrrr":1}          
+	SomeText: "You are telling the enemy exactly what you are going to do. No wonder you have been fighting Lorem Ipsum your entire adult life. Look at these words. Are they small words? And he referred to my words - if they are small, something else must be small. I guarantee you there's no problem, I guarantee. Trump Ipsum is calling for a total and complete shutdown of Muslim text entering your website. Lorem Ipsum is unattractive, both inside and out. I fully understand why its former users left it for something else. They made a good decision."
+
+3  20                 "I don't know"                      
+4  20                 ...                                 
+

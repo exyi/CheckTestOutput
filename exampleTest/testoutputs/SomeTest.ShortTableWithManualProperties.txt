@@ -1,0 +1,7 @@
+Title          ID Age Something.Prop PolymorphicSomething.trrrr 
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Yes            1  10  hmm                                       
+"please no"    2  20                 1                          
+"I don't know" 3  20                                            
+...            4  20                                            
+
