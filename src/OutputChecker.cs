@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace CheckTestOutput
 {
@@ -42,7 +45,7 @@ namespace CheckTestOutput
                 this.CheckDirectory = Path.Combine(Path.GetDirectoryName(calledFrom), directory);
             }
 
-            DoesGitWork = new Lazy<bool>(() => {
+            DoesGitWork = doesGitWorkCache.GetOrAdd(directory, new Lazy<bool>(() => {
                 try
                 {
                     var path = RunGitCommand("rev-parse", "--show-toplevel");
@@ -64,9 +67,11 @@ namespace CheckTestOutput
                     Console.WriteLine("Error: " + e);
                     return false;
                 }
-            });
+            }));
 
         }
+
+        private static ConcurrentDictionary<string, Lazy<bool>> doesGitWorkCache = new();
 
         public string CheckDirectory { get; }
         private string[] _nonDeterminismSanitizers;
@@ -80,6 +85,9 @@ namespace CheckTestOutput
 
         private string[] RunGitCommand(params string[] args)
         {
+#if DEBUG
+            Console.WriteLine("Running git command: " + string.Join(" ", args));
+#endif
             // run `git ...args` in CheckDirectory working directory with 3 second timeout
             var procInfo = new ProcessStartInfo("git")
             {
@@ -87,6 +95,7 @@ namespace CheckTestOutput
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                RedirectStandardInput = true,
                 CreateNoWindow = true,
                 StandardOutputEncoding = System.Text.Encoding.UTF8,
                 StandardErrorEncoding = System.Text.Encoding.UTF8,
@@ -94,17 +103,33 @@ namespace CheckTestOutput
             foreach (var a in args)
                 procInfo.ArgumentList.Add(a);
 
+
             var proc = Process.Start(procInfo);
-            if (!proc.WaitForExit(3000))
+
+            var outputLines = new List<string>();
+            var outputReaderTask = Task.Run(() => {
+                string line = null;
+                while ((line = proc.StandardOutput.ReadLine()) != null)
+                {
+                    if (line.Length > 0)
+                        outputLines.Add(line);
+                }
+            });
+
+            // Literally, a Raspberry PI with a shitty SD card has faster IO than Azure Windows VM
+            var timeout = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? 15_000 : 3_000;
+            if (!proc.WaitForExit(timeout))
             {
                 proc.Kill();
-                throw new Exception("Git command timed out");
+                throw new Exception($"`git {string.Join(" ", args)}` command timed out");
             }
 
             if (proc.ExitCode != 0)
-                throw new Exception("Git command failed: " + proc.StandardError.ReadToEnd());
-            
-            return proc.StandardOutput.ReadToEnd().Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+                throw new Exception($"`git {string.Join(" ", args)}` command failed: " + proc.StandardError.ReadToEnd());
+
+            outputReaderTask.Wait();
+
+            return outputLines.ToArray();
         }
 
         static string[] ReadAllLines(StreamReader reader)
@@ -143,6 +168,13 @@ namespace CheckTestOutput
             return !gitOut.All(string.IsNullOrEmpty);
         }
 
+        private bool IsNewFile(string file)
+        {
+            var gitOut = RunGitCommand("ls-files", "--other", file);
+            // if it outputs back the filename, it is other (untracked)
+            return !gitOut.All(string.IsNullOrEmpty);
+        }
+
         /// <summary> Applies the <see cref="NonDeterminismSanitizers" /> to the string. </summary>
         public string SanitizeString(string outputString)
         {
@@ -163,21 +195,22 @@ namespace CheckTestOutput
 
         internal void CheckOutputCore(string outputString, string checkName, string method, string fileExtension = "txt")
         {
+            outputString = outputString.Replace("\r\n", "\n").TrimEnd('\n');
             outputString = SanitizeString(outputString);
 
             Directory.CreateDirectory(CheckDirectory);
 
             var filename = Path.Combine(CheckDirectory, (checkName == null ? method : $"{method}-{checkName}") + "." + fileExtension);
 
-
-            if (GetOldContent(filename) == outputString.Replace("\r", ""))
+            if (GetOldContent(filename) == outputString)
             {
                 // fine! Just check that the file is not changed - if it is changed or deleted, we rewrite
                 if (IsModified(filename))
                 {
                     using (var t = File.CreateText(filename))
                     {
-                        t.WriteLine(outputString);
+                        t.Write(outputString);
+                        t.Write("\n");
                     }
                 }
                 return;
@@ -187,14 +220,25 @@ namespace CheckTestOutput
             {
                 using (var t = File.CreateText(filename))
                 {
-                    t.WriteLine(outputString);
+                    t.Write(outputString);
+                    t.Write("\n");
                 }
 
                 if (IsModified(filename))
                 {
+                    if (IsNewFile(filename))
+                    {
+                        throw new Exception($"{Path.GetFileName(filename)} is not explicitly accepted - the file is untracked in git. To let this test pass, view the file and stage it. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#untracked-file\n");
+                    }
+
+
                     var diff = RunGitCommand("diff", filename);
                     if (diff.All(string.IsNullOrEmpty))
-                        throw new Exception($"{Path.GetFileName(filename)} is not explicitly accepted - the file is untracked in git. To let this test pass, view the file and stage it. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#untracked-file\n");
+                    {
+                        // I guess fine from our perspective, but it's weird...
+                        Console.WriteLine($"CheckTestOutput warning: {Path.GetFileName(filename)} is modified, but the diff is empty.");
+                        return;
+                    }
                     throw new Exception(
                         $"{Path.GetFileName(filename)} has changed, the actual output differs from the previous accepted output:\n\n" +
                         string.Join("\n", diff) + "\n\n" +
