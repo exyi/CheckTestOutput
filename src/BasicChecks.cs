@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -18,6 +18,24 @@ namespace CheckTestOutput
             [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null)
         {
             t.CheckOutputCore(
+                output,
+                checkName,
+                $"{Path.GetFileNameWithoutExtension(sourceFilePath)}.{memberName}",
+                fileExtension
+            );
+        }
+
+        /// <summary> Verifies that the provided <paramref name="output" /> equals to the `outputDirectory/TestClass.TestMethod.bin` file. </summary>
+        /// <param name="checkName"> If not null, checkName will be appended to the calling <paramref name="memberName" />. Intended to be used when having multiple checks in one method. </param>
+        public static void CheckBinary(
+            this OutputChecker t,
+            byte[] output,
+            string checkName = null,
+            string fileExtension = "bin",
+            [System.Runtime.CompilerServices.CallerMemberName] string memberName = null,
+            [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null)
+        {
+            t.CheckOutputBinaryCore(
                 output,
                 checkName,
                 $"{Path.GetFileNameWithoutExtension(sourceFilePath)}.{memberName}",

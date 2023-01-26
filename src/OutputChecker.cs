@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -160,6 +160,11 @@ namespace CheckTestOutput
             }
         }
 
+        private byte[] GetOldBinaryContent(string file)
+        {
+            return File.ReadAllBytes(file);
+        }
+
         private bool IsModified(string file)
         {
             // command `git ls-files --other --modified $file` returns the file name back iff it is modified or other (untracked)
@@ -242,14 +247,67 @@ namespace CheckTestOutput
                     throw new Exception(
                         $"{Path.GetFileName(filename)} has changed, the actual output differs from the previous accepted output:\n\n" +
                         string.Join("\n", diff) + "\n\n" +
-                        "If this change OK? To let the test pass, stage the file in git. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#changed-file\n"
+                        "Is this change OK? To let the test pass, stage the file in git. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#changed-file\n"
 
                     );
                 }
             }
             else
             {
-                throw new Exception($"{Path.GetFileName(filename)}has changed, the previous accepted output differs from the actual output:\n\n{outputString}\n\nNote that CheckTestOutput could not use git on your system, so the \"UX\" is limited.");
+                throw new Exception($"{Path.GetFileName(filename)} has changed, the previous accepted output differs from the actual output:\n\n{outputString}\n\nNote that CheckTestOutput could not use git on your system, so the \"UX\" is limited.");
+            }
+        }
+
+        internal void CheckOutputBinaryCore(byte[] outputBytes, string checkName, string method, string fileExtension = "bin")
+        {
+            Directory.CreateDirectory(CheckDirectory);
+
+            var filename = Path.Combine(CheckDirectory, (checkName == null ? method : $"{method}-{checkName}") + "." + fileExtension);
+
+            if (GetOldBinaryContent(filename).SequenceEqual(outputBytes))
+            {
+                // fine! Just check that the file is not changed - if it is changed or deleted, we rewrite
+                if (IsModified(filename))
+                {
+                    using (var t = File.Create(filename))
+                    {
+                        t.Write(outputBytes);
+                    }
+                }
+                return;
+            }
+
+            if (DoesGitWork.Value)
+            {
+                using (var t = File.Create(filename))
+                {
+                    t.Write(outputBytes);
+                }
+
+                if (IsModified(filename))
+                {
+                    if (IsNewFile(filename))
+                    {
+                        throw new Exception($"{Path.GetFileName(filename)} is not explicitly accepted - the file is untracked in git. To let this test pass, view the file and stage it. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#untracked-file\n");
+                    }
+
+
+                    var diff = RunGitCommand("diff", filename);
+                    if (diff.All(string.IsNullOrEmpty))
+                    {
+                        // I guess fine from our perspective, but it's weird...
+                        Console.WriteLine($"CheckTestOutput warning: {Path.GetFileName(filename)} is modified, but the diff is empty.");
+                        return;
+                    }
+                    throw new Exception(
+                        $"{Path.GetFileName(filename)} has changed, the actual output differs from the previous accepted output!" 
+                        + "Is the change OK? To let the test pass, stage the file in git. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#changed-file\n"
+                    );
+                }
+            }
+            else
+            {
+                throw new Exception($"{Path.GetFileName(filename)} has changed, the previous accepted output differs from the actual output.");
             }
         }
     }
