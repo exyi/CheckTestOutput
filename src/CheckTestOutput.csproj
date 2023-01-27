@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.1;net6.0;net7.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0;net7.0</TargetFrameworks>
     <LangVersion>9</LangVersion>
 
     <Description>Simple helper which checks that output of a test matches a file. If not matching, just git staging the new file will accept the new version.</Description>
@@ -16,7 +16,7 @@
 
     <AssemblyOriginatorKeyFile>dotvvmwizard.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
-    <PublicSign>true</PublicSign>
+    <!-- <PublicSign >true</PublicSign> -->
 
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
@@ -29,6 +29,10 @@
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
     <PackageReference Include="System.Text.Json" Version="5.0.2" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="System.Text.Json" Version="5.0.2" />
+    <PackageReference Include="MedallionShell.StrongName" Version="1.6.2" />
   </ItemGroup>
 
   <ItemGroup>

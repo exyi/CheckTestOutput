@@ -88,6 +88,7 @@ namespace CheckTestOutput
 #if DEBUG
             Console.WriteLine("Running git command: " + string.Join(" ", args));
 #endif
+#if NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
             // run `git ...args` in CheckDirectory working directory with 3 second timeout
             var procInfo = new ProcessStartInfo("git")
             {
@@ -102,9 +103,12 @@ namespace CheckTestOutput
             };
             foreach (var a in args)
                 procInfo.ArgumentList.Add(a);
-
-
             return Process.Start(procInfo);
+#else
+            // Old frameworks don't support ArgumentList, so I rather pull in a dependency than write my own escaping
+            var command = Medallion.Shell.Shell.Default.Run("git", args, options => options.WorkingDirectory(CheckDirectory).Timeout(TimeSpan.FromSeconds(15)));
+            return command.Process;
+#endif
         }
 
         private void HandleProcessExit(Process proc, Task outputReaderTask, params string[] args)
@@ -145,21 +149,13 @@ namespace CheckTestOutput
 
         private byte[] RunGitBinaryCommand(params string[] args)
         {
-            const int BUFFER_SIZE = 1024;
-
             var proc = StartGitProcess(args);
 
-            List<byte> ret = new();
+            MemoryStream ret = new();
 
             var outputReaderTask = Task.Run(() =>
             {
-                byte[] buffer = new byte[BUFFER_SIZE];
-
-                int charsRead = 0;
-                while ((charsRead = proc.StandardOutput.BaseStream.Read(buffer, 0, BUFFER_SIZE)) != 0)
-                {
-                    ret.AddRange(buffer.AsSpan(0, charsRead).ToArray());
-                }
+                proc.StandardOutput.BaseStream.CopyTo(ret);
             });
 
             HandleProcessExit(proc, outputReaderTask, args);
@@ -323,7 +319,7 @@ namespace CheckTestOutput
                 {
                     using (var t = File.Create(filename))
                     {
-                        t.Write(outputBytes);
+                        t.Write(outputBytes, 0, outputBytes.Length);
                     }
                 }
                 return;
@@ -333,7 +329,7 @@ namespace CheckTestOutput
             {
                 using (var t = File.Create(filename))
                 {
-                    t.Write(outputBytes);
+                    t.Write(outputBytes, 0, outputBytes.Length);
                 }
 
                 if (IsModified(filename))
