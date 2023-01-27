@@ -83,7 +83,7 @@ namespace CheckTestOutput
 
         private readonly Lazy<bool> DoesGitWork;
 
-        private Process StartGitProcess(System.Text.Encoding encoding, params string[] args)
+        private Process StartGitProcess(params string[] args)
         {
 #if DEBUG
             Console.WriteLine("Running git command: " + string.Join(" ", args));
@@ -97,8 +97,8 @@ namespace CheckTestOutput
                 RedirectStandardError = true,
                 RedirectStandardInput = true,
                 CreateNoWindow = true,
-                StandardOutputEncoding = encoding,
-                StandardErrorEncoding = encoding,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8,
             };
             foreach (var a in args)
                 procInfo.ArgumentList.Add(a);
@@ -125,7 +125,7 @@ namespace CheckTestOutput
 
         private string[] RunGitCommand(params string[] args)
         {
-            var proc = StartGitProcess(System.Text.Encoding.UTF8, args);
+            var proc = StartGitProcess(args);
 
             var outputLines = new List<string>();
             var outputReaderTask = Task.Run(() =>
@@ -147,16 +147,16 @@ namespace CheckTestOutput
         {
             const int BUFFER_SIZE = 1024;
 
-            var proc = StartGitProcess(System.Text.Encoding.ASCII, args);
+            var proc = StartGitProcess(args);
 
-            List<char> ret = new();
+            List<byte> ret = new();
 
             var outputReaderTask = Task.Run(() =>
             {
-                char[] buffer = new char[BUFFER_SIZE];
+                byte[] buffer = new byte[BUFFER_SIZE];
 
                 int charsRead = 0;
-                while ((charsRead = proc.StandardOutput.ReadBlock(buffer, 0, BUFFER_SIZE)) != 0)
+                while ((charsRead = proc.StandardOutput.BaseStream.Read(buffer, 0, BUFFER_SIZE)) != 0)
                 {
                     ret.AddRange(buffer.AsSpan(0, charsRead).ToArray());
                 }
@@ -164,7 +164,7 @@ namespace CheckTestOutput
 
             HandleProcessExit(proc, outputReaderTask, args);
 
-            return ret.ConvertAll(c => (byte)c).ToArray();
+            return ret.ToArray();
         }
 
         static string[] ReadAllLines(StreamReader reader)
