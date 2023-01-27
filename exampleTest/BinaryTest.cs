@@ -50,13 +50,15 @@ namespace CheckTestOutput.Example
             Assert.True(true);
         }   
         
-
         [Fact]
         public void CheckUTF8TextConvertedWithASCIIBinaryDataThrows()
         {
             const string TEXT = "( ͡° ͜ʖ ͡°)";
 
             Assert.Throws<Exception>(() => check.CheckBinary(Encoding.ASCII.GetBytes(TEXT)));
+            
+            // Return back the original content
+            File.WriteAllBytes(Path.Combine(check.CheckDirectory, $"{nameof(BinaryTest)}.{nameof(CheckUTF8TextConvertedWithASCIIBinaryDataThrows)}.bin"), Encoding.UTF8.GetBytes(TEXT));
         }
     }
 }
