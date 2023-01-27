@@ -113,6 +113,8 @@ public void GenerateSomeCsharpCode()
 
 Just keep in mind that dotnet is going to treat these `.cs` files as part of source code unless you `<Compile Remove="testoutputs/**.cs" />` them in the `.csproj` file.
 
+Binary data can be checked using `check.CheckBinary(byte[])` method. No diff is printed in that case, you have to use an external tool to diff binary files.
+
 ### F#
 
 CheckTestOutput is reasonably F# friendly, although it's written in C#:
@@ -190,7 +192,7 @@ For more inspiration, have a look at [CheckExtensions class in the Coberec proje
 
 ## Installation
 
-[NuGet package](https://www.nuget.org/packages/CheckTestOutput) ¯\_(ツ)_/¯.
+[NuGet package](https://www.nuget.org/packages/CheckTestOutput) ¯\\_(ツ)_/¯.
 
 ```
 dotnet add package CheckTestOutput
