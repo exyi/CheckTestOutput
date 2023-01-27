@@ -83,7 +83,7 @@ namespace CheckTestOutput
 
         private readonly Lazy<bool> DoesGitWork;
 
-        private string[] RunGitCommand(params string[] args)
+        private Process StartGitProcess(System.Text.Encoding encoding, params string[] args)
         {
 #if DEBUG
             Console.WriteLine("Running git command: " + string.Join(" ", args));
@@ -97,25 +97,18 @@ namespace CheckTestOutput
                 RedirectStandardError = true,
                 RedirectStandardInput = true,
                 CreateNoWindow = true,
-                StandardOutputEncoding = System.Text.Encoding.UTF8,
-                StandardErrorEncoding = System.Text.Encoding.UTF8,
+                StandardOutputEncoding = encoding,
+                StandardErrorEncoding = encoding,
             };
             foreach (var a in args)
                 procInfo.ArgumentList.Add(a);
 
 
-            var proc = Process.Start(procInfo);
+            return Process.Start(procInfo);
+        }
 
-            var outputLines = new List<string>();
-            var outputReaderTask = Task.Run(() => {
-                string line = null;
-                while ((line = proc.StandardOutput.ReadLine()) != null)
-                {
-                    if (line.Length > 0)
-                        outputLines.Add(line);
-                }
-            });
-
+        private void HandleProcessExit(Process proc, Task outputReaderTask, params string[] args)
+        {
             // Literally, a Raspberry PI with a shitty SD card has faster IO than Azure Windows VM
             var timeout = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? 15_000 : 3_000;
             if (!proc.WaitForExit(timeout))
@@ -128,8 +121,50 @@ namespace CheckTestOutput
                 throw new Exception($"`git {string.Join(" ", args)}` command failed: " + proc.StandardError.ReadToEnd());
 
             outputReaderTask.Wait();
+        }
+
+        private string[] RunGitCommand(params string[] args)
+        {
+            var proc = StartGitProcess(System.Text.Encoding.UTF8, args);
+
+            var outputLines = new List<string>();
+            var outputReaderTask = Task.Run(() =>
+            {
+                string line;
+                while ((line = proc.StandardOutput.ReadLine()) != null)
+                {
+                    if (line.Length > 0)
+                        outputLines.Add(line);
+                }
+            });
+
+            HandleProcessExit(proc, outputReaderTask, args);
 
             return outputLines.ToArray();
+        }
+
+        private byte[] RunGitBinaryCommand(params string[] args)
+        {
+            const int BUFFER_SIZE = 1024;
+
+            var proc = StartGitProcess(System.Text.Encoding.ASCII, args);
+
+            List<char> ret = new();
+
+            var outputReaderTask = Task.Run(() =>
+            {
+                char[] buffer = new char[BUFFER_SIZE];
+
+                int charsRead = 0;
+                while ((charsRead = proc.StandardOutput.ReadBlock(buffer, 0, BUFFER_SIZE)) != 0)
+                {
+                    ret.AddRange(buffer.AsSpan(0, charsRead).ToArray());
+                }
+            });
+
+            HandleProcessExit(proc, outputReaderTask, args);
+
+            return ret.ConvertAll(c => (byte)c).ToArray();
         }
 
         static string[] ReadAllLines(StreamReader reader)
@@ -162,7 +197,24 @@ namespace CheckTestOutput
 
         private byte[] GetOldBinaryContent(string file)
         {
-            return File.ReadAllBytes(file);
+            if (DoesGitWork.Value)
+            {
+                var lsFiles = RunGitCommand("ls-files", "-s", file);
+                if (lsFiles.Length == 0)
+                    return null;
+
+                var hash = lsFiles[0].Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1);
+                if (String.IsNullOrEmpty(hash))
+                    return null;
+
+                var data = RunGitBinaryCommand("cat-file", "blob", hash);
+
+                return data;
+            }
+            else
+            {
+                return File.ReadAllBytes(file);
+            }
         }
 
         private bool IsModified(string file)
@@ -300,7 +352,7 @@ namespace CheckTestOutput
                         return;
                     }
                     throw new Exception(
-                        $"{Path.GetFileName(filename)} has changed, the actual output differs from the previous accepted output!" 
+                        $"{Path.GetFileName(filename)} has changed, the actual output differs from the previous accepted output!"
                         + "Is the change OK? To let the test pass, stage the file in git. Confused? See https://github.com/exyi/CheckTestOutput/blob/master/trouble.md#changed-file\n"
                     );
                 }
