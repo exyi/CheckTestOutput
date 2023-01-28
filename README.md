@@ -1,13 +1,13 @@
 # CheckTestOutput
 
-**A library for semi-manual tests. Run a function, manually check the output - only if it is different than last run. Built on git - stage the new version to accept it.**
+**A library for semi-manual test output verification. Asks you to `git add` the new output if it changed.**
 
-Although it's a nice idea that tests should verify if the results are correct by some smart logic, it not always possible/practical. For example, when testing a transpiler, it would come in handy to solve the halting problem. In such cases, you will end up with an `Assert.Equal("some very long code including many \" \" and \n \n, super fun to read and maintain", generatedCode)`. This project just makes the long asserts less annoying.
-
-CheckTestOutput simply compares the test output and the last "accepted" test output. When it differs, you get an error.
-The test output is **compared with its version from git index** and throws an **exception if it does not match**, prints a diff and writes a new version to the working tree.
+CheckTestOutput simply compares the test output with the last "accepted" file. When it differs, you get an error.
+It is **compared with its version from git index** and throws an **exception if it does not match**, prints a diff and writes a new version to the working tree.
 To accept the new version, you simply stage the changed file (`git add ...`).
 To inspect the differences, you use your favorite diff tool.
+
+Although it's a nice idea that tests should verify if the results are correct by some smart logic, it not always possible/practical. For example, when testing a transpiler, it would come in handy to solve the halting problem. In such cases, you will end up with an `Assert.Equal("some very long code including many \" \" and \n \n, super fun to read and maintain", generatedCode)`. This project just makes the long asserts less annoying.
 
 ## Usage
 
@@ -198,5 +198,6 @@ For more inspiration, have a look at [CheckExtensions class in the Coberec proje
 dotnet add package CheckTestOutput
 ```
 
-Alternatively, you can just grab the source codes from `src` folder and copy them into your project (it's MIT licensed, so just keep a link to this project in the copied code). This library does not have any other dependencies.
+Alternatively, you can just grab the source codes from `src` folder and copy them into your project (it's MIT licensed, so just keep a link to this project in the copied code).
+This library does not have any other dependencies (on new enough dotnet).
 
