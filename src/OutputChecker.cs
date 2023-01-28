@@ -88,7 +88,6 @@ namespace CheckTestOutput
 #if DEBUG
             Console.WriteLine("Running git command: " + string.Join(" ", args));
 #endif
-#if NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
             // run `git ...args` in CheckDirectory working directory with 3 second timeout
             var procInfo = new ProcessStartInfo("git")
             {
@@ -101,53 +100,64 @@ namespace CheckTestOutput
                 StandardOutputEncoding = System.Text.Encoding.UTF8,
                 StandardErrorEncoding = System.Text.Encoding.UTF8,
             };
+#if NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
             foreach (var a in args)
                 procInfo.ArgumentList.Add(a);
-            return Process.Start(procInfo);
 #else
-            // Old frameworks don't support ArgumentList, so I rather pull in a dependency than write my own escaping
-            var command = Medallion.Shell.Shell.Default.Run("git", args, options => options.WorkingDirectory(CheckDirectory).Timeout(TimeSpan.FromSeconds(15)));
-            return command.Process;
+            procInfo.Arguments = WindowsEscapeArguments(args);
 #endif
+            return Process.Start(procInfo);
         }
+
+
+#if !(NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER)
+        private static string WindowsEscapeArguments(params string[] args)
+        {
+            // based on the logic from http://stackoverflow.com/questions/5510343/escape-command-line-arguments-in-c-sharp.
+
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                throw new InvalidOperationException("The nestandard2.0 build is only supported on Windows old .NET Framework");
+
+            return string.Join(" ", args.Select(a => {
+                a = Regex.Replace(a, @"(\\*)" + "\"", @"$1$1\" + "\"");
+                return "\"" + Regex.Replace(a, @"(\\+)$", @"$1$1") + "\"";
+            }));
+        }
+#endif
+
 
         private void HandleProcessExit(Process proc, Task outputReaderTask, params string[] args)
         {
-            // Literally, a Raspberry PI with a shitty SD card has faster IO than Azure Windows VM
-            var timeout = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? 15_000 : 3_000;
-            if (!proc.WaitForExit(timeout))
+            try
             {
-                proc.Kill();
-                throw new Exception($"`git {string.Join(" ", args)}` command timed out");
+                // Literally, a Raspberry PI with a shitty SD card has faster IO than Azure Windows VM
+                var timeout = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? 15_000 : 3_000;
+                if (!proc.WaitForExit(timeout))
+                {
+                    proc.Kill();
+                    throw new Exception($"`git {string.Join(" ", args)}` command timed out");
+                }
+
+                if (proc.ExitCode != 0)
+                    throw new Exception($"`git {string.Join(" ", args)}` command failed: " + proc.StandardError.ReadToEnd());
+
+                outputReaderTask.Wait();
             }
-
-            if (proc.ExitCode != 0)
-                throw new Exception($"`git {string.Join(" ", args)}` command failed: " + proc.StandardError.ReadToEnd());
-
-            outputReaderTask.Wait();
+            finally
+            {
+                proc.Dispose();
+            }
         }
 
         private string[] RunGitCommand(params string[] args)
         {
-            var proc = StartGitProcess(args);
+            var output = RunGitBinaryCommand(args);
 
-            var outputLines = new List<string>();
-            var outputReaderTask = Task.Run(() =>
-            {
-                string line;
-                while ((line = proc.StandardOutput.ReadLine()) != null)
-                {
-                    if (line.Length > 0)
-                        outputLines.Add(line);
-                }
-            });
-
-            HandleProcessExit(proc, outputReaderTask, args);
-
-            return outputLines.ToArray();
+            using var reader = new StreamReader(output);
+            return ReadAllLines(reader);
         }
 
-        private byte[] RunGitBinaryCommand(params string[] args)
+        private MemoryStream RunGitBinaryCommand(params string[] args)
         {
             var proc = StartGitProcess(args);
 
@@ -160,14 +170,16 @@ namespace CheckTestOutput
 
             HandleProcessExit(proc, outputReaderTask, args);
 
-            return ret.ToArray();
+            ret.Position = 0;
+            return ret;
         }
 
         static string[] ReadAllLines(StreamReader reader)
         {
             var lines = new List<string>();
             while (!reader.EndOfStream && reader.ReadLine() is {} line)
-                lines.Add(line);
+                if (line.Length > 0)
+                    lines.Add(line);
             return lines.ToArray();
         }
 
@@ -205,7 +217,7 @@ namespace CheckTestOutput
 
                 var data = RunGitBinaryCommand("cat-file", "blob", hash);
 
-                return data;
+                return data.ToArray();
             }
             else
             {
