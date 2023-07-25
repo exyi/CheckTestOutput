@@ -38,7 +38,8 @@ namespace CheckTestOutput.Example
         {
             var imageBytes = File.ReadAllBytes(Path.Combine(check.CheckDirectory, ImagePath));
             // File does not exist
-            Assert.Throws<ArgumentNullException>(() => check.CheckBinary(imageBytes));
+            var ex = Assert.Throws<Exception>(() => check.CheckBinary(imageBytes));
+            Assert.Contains("the file is untracked in git", ex.Message);
         }
         
         [Fact]
