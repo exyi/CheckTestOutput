@@ -178,8 +178,7 @@ namespace CheckTestOutput
         {
             var lines = new List<string>();
             while (!reader.EndOfStream && reader.ReadLine() is {} line)
-                if (line.Length > 0)
-                    lines.Add(line);
+                lines.Add(line);
             return lines.ToArray();
         }
 
@@ -267,7 +266,7 @@ namespace CheckTestOutput
 
             var filename = Path.Combine(CheckDirectory, (checkName == null ? method : $"{method}-{checkName}") + "." + fileExtension);
 
-            if (GetOldContent(filename).TrimEnd('\n') == outputString)
+            if (GetOldContent(filename)?.TrimEnd('\n') == outputString)
             {
                 // fine! Just check that the file is not changed - if it is changed or deleted, we rewrite
                 if (IsModified(filename))
