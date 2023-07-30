@@ -267,7 +267,7 @@ namespace CheckTestOutput
 
             var filename = Path.Combine(CheckDirectory, (checkName == null ? method : $"{method}-{checkName}") + "." + fileExtension);
 
-            if (GetOldContent(filename) == outputString)
+            if (GetOldContent(filename).TrimEnd('\n') == outputString)
             {
                 // fine! Just check that the file is not changed - if it is changed or deleted, we rewrite
                 if (IsModified(filename))
