@@ -33,6 +33,11 @@ namespace CheckTestOutput.Example
             File.WriteAllBytes(Path.Combine(check.CheckDirectory, $"{nameof(BinaryTest)}.{nameof(CheckModifiedBinaryData)}.bin"), previousData);
         }
 
+        private string GetSourcePath([System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null)
+        {
+            return sourceFilePath;
+        }
+
         [Fact]
         public void CheckNonexistentBinaryData()
         {
@@ -40,6 +45,16 @@ namespace CheckTestOutput.Example
             // File does not exist
             var ex = Assert.Throws<Exception>(() => check.CheckBinary(imageBytes));
             Assert.Contains("the file is untracked in git", ex.Message);
+
+            try
+            {
+                var directory = Path.GetDirectoryName(GetSourcePath());
+                File.Delete(directory + "/testoutputs/BinaryTest.CheckNonexistentBinaryData.bin");
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
         }
         
         [Fact]
