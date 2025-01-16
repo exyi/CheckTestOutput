@@ -257,27 +257,42 @@ namespace CheckTestOutput
             return outputString;
         }
 
-        internal void CheckOutputCore(string outputString, string checkName, string method, string fileExtension = "txt")
+        internal void CheckOutputCore(string outputString, string checkName, string method, string fileExtension = "txt", bool allowAlternatives = false)
         {
             outputString = outputString.Replace("\r\n", "\n").TrimEnd('\n');
             outputString = SanitizeString(outputString);
 
             Directory.CreateDirectory(CheckDirectory);
 
-            var filename = Path.Combine(CheckDirectory, (checkName == null ? method : $"{method}-{checkName}") + "." + fileExtension);
-
-            if (GetOldContent(filename)?.TrimEnd('\n') == outputString)
+            var alternativeIndex = 0;
+            string filename;
+            while (true)
             {
-                // fine! Just check that the file is not changed - if it is changed or deleted, we rewrite
-                if (IsModified(filename))
+                filename = !allowAlternatives
+                    ? Path.Combine(CheckDirectory, (checkName == null ? method : $"{method}-{checkName}") + "." + fileExtension)
+                    : Path.Combine(CheckDirectory, (checkName == null ? method : $"{method}-{checkName}") + $"-alt{alternativeIndex:000}." + fileExtension);
+
+                if (GetOldContent(filename)?.TrimEnd('\n') == outputString)
                 {
-                    using (var t = File.CreateText(filename))
+                    // fine! Just check that the file is not changed - if it is changed or deleted, we rewrite
+                    if (IsModified(filename))
                     {
-                        t.Write(outputString);
-                        t.Write("\n");
+                        using (var t = File.CreateText(filename))
+                        {
+                            t.Write(outputString);
+                            t.Write("\n");
+                        }
                     }
+
+                    return;
                 }
-                return;
+
+                if (allowAlternatives && File.Exists(filename))
+                {
+                    alternativeIndex++;
+                    continue;
+                }
+                break;
             }
 
             if (DoesGitWork.Value)

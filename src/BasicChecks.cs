@@ -13,13 +13,15 @@ namespace CheckTestOutput
             string checkName = null,
             string fileExtension = "txt",
             [System.Runtime.CompilerServices.CallerMemberName] string memberName = null,
-            [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null)
+            [System.Runtime.CompilerServices.CallerFilePath] string sourceFilePath = null,
+            bool allowAlternatives = false)
         {
             t.CheckOutputCore(
                 output,
                 checkName,
                 $"{Path.GetFileNameWithoutExtension(sourceFilePath)}.{memberName}",
-                fileExtension
+                fileExtension,
+                allowAlternatives
             );
         }
 
